@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from struct import pack, unpack
 from struct import error as StructError
 from math import log, floor, sqrt
