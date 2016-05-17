@@ -10,6 +10,18 @@ import collections
 import re
 import copy
 import sys
+import warnings
+
+PY3 = sys.version[0] == "3"
+if not PY3:
+    str = unicode
+    _isinstance = isinstance
+    def isinstance(obj,typ):
+        if typ == str:
+            # since in py2 text is equally often bytes or unicode
+            return _isinstance(obj,(bytes,unicode))
+        else:
+            return _isinstance(obj,typ)
 
 from .stata_missing import (
     get_missing, MissingValue, MISSING, MISSING_VALS
@@ -253,14 +265,14 @@ class Dta():
             if not isinstance(self, Dta115):
                 if not quiet:
                     msg = "file format is {}, converting to 117"
-                    print(msg.format(version))
+                    warnings.warn(msg.format(version))
                 self._convert_dta(Dta115)
         else:
             self._file_to_Dta117(address)
             if not isinstance(self, Dta117):
                 if not quiet:
                     msg = "file format is {}, converting to 115"
-                    print(msg.format(version))
+                    warnings.warn(msg.format(version))
                 self._convert_dta(Dta117)
                 
         # set self's path and filename
@@ -481,7 +493,7 @@ class Dta():
             if not self._quiet:
                 smcl = "{err}" if IN_STATA else ""
                 msg = smcl + "only one {}varname allowed; ignoring the rest"
-                print(msg.format('e' if evars else ''))
+                warnings.warn(msg.format('e' if evars else ''))
             split_names = split_names[:1]
     
         # if all_specified, return aleady-constructed all_names
@@ -1604,8 +1616,8 @@ class Dta():
                 raise TypeError("frequency weights must be integer")        
                 
             if wt_type == 'a' and weight is not None and not self._quiet:
-                if IN_STATA: print("{txt}(analytic weights assumed)")
-                else: print("(analytic weights assumed)")
+                if IN_STATA: warnings.warn("{txt}(analytic weights assumed)")
+                else: warnings.warn("(analytic weights assumed)")
         else:
             wt_type, wt_index = ('a', None)
         
@@ -2724,9 +2736,9 @@ class Dta():
         if len(label) > 80:
             if not self._quiet:
                 if IN_STATA:
-                    print("{err}truncating label to 80 characters")
+                    warnings.warn("{err}truncating label to 80 characters")
                 else:
-                    print("truncating label to 80 characters")
+                    warnings.warn("truncating label to 80 characters")
             label = label[:80]
         if self._data_label == label:
             return
@@ -3302,12 +3314,12 @@ class Dta():
             # Also guards against empty lang list.
             if curr_lang not in langs or not has_lang_c:
                 if IN_STATA:
-                    print("".join(
+                    warnings.warn("".join(
                         ("{err}",
                         "odd values in characteristics; ",
                         "trying to recover")))
                 else:
-                    print("odd values in characteristics; trying to recover")
+                    warnings.warn("odd values in characteristics; trying to recover")
                 
                 # make sure curr_lang is not one of the stored languages
                 
@@ -3415,9 +3427,9 @@ class Dta():
         if len(languagename) > 24:
             if not self._quiet:
                 if IN_STATA:
-                    print("{err}shortening language name to 24 characters")
+                    warnings.warn("{err}shortening language name to 24 characters")
                 else:
-                    print("shortening language name to 24 characters")
+                    warnings.warn("shortening language name to 24 characters")
             languagename = languagename[:24]
         
         name_exists = languagename in langs
@@ -3430,7 +3442,7 @@ class Dta():
             if languagename == curr_lang:
                 if not self._quiet:
                     msg = "{}({} already current language)"
-                    print(msg.format("{txt}" if IN_STATA else "", curr_lang))
+                    warnings.warn(msg.format("{txt}" if IN_STATA else "", curr_lang))
             else:
                 self._label_language_swap(languagename, curr_lang)
             return
@@ -3475,7 +3487,7 @@ class Dta():
             # use current labels
             if not self._quiet:
                 msg = "{}(language {} now current language)"
-                print(msg.format("{txt}" if IN_STATA else "", languagename))
+                warnings.warn(msg.format("{txt}" if IN_STATA else "", languagename))
         else:
             # empty current labels
             nvar = self._nvar
@@ -3819,7 +3831,7 @@ class Dta():
         """
         
         if version is None:
-            print("assuming Stata version 13")
+            warnings.warn("assuming Stata version 13")
             version = 13
         if version not in (11, 12, 13):
             raise ValueError("allowed versions are 11 through 13")
@@ -3849,119 +3861,119 @@ class Dta():
         small_good = medium_good = large_good = True
         general_good = format_good = True
         
-        print("\nformat problems")
+        warnings.warn("\nformat problems")
         if self._ds_format == 117 and version <= 12:
             format_good = False
-            print("    format 117 cannot be opened by Stata version " + 
+            warnings.warn("    format 117 cannot be opened by Stata version " + 
                   str(version))
         if version < 12 and any(TB_FMT_RE.match(fmt) for fmt in self._fmtlist):
             format_good = False
-            print("    Stata version " + str(version) + 
+            warnings.warn("    Stata version " + str(version) + 
                   " cannot understand tb format")
         if format_good:
-            print("    none")
+            warnings.warn("    none")
         
-        print("\ngeneral size problems")
+        warnings.warn("\ngeneral size problems")
         if len(self._data_label) > 80:
             general_good = False
-            print("    data label length > 80")
+            warnings.warn("    data label length > 80")
         if any(len(name) > 32 for name in self._varlist):
             general_good = False
-            print("    variable name length > 32")
+            warnings.warn("    variable name length > 32")
         if any(len(v) > 80 for v in self._vlblist):
             general_good = False
-            print("    variable label length > 80")
+            warnings.warn("    variable label length > 80")
         if any(len(name) > 32 for name in self._vallabs.keys()):
             general_good = False
-            print("    value label name length > 32")
+            warnings.warn("    value label name length > 32")
         if any(len(valstr) > 32000 
                for mapping in self._vallabs.values()
                for valstr in mapping.values()):
             general_good = False
-            print("    value label string length > 32,000")
+            warnings.warn("    value label string length > 32,000")
         if max_num_notes > 10000:
             # limit here is set at 10000, assuming one of the notes is 'note0'
             general_good = False
-            print("    number of notes for single variable or _dta > 9,999")
+            warnings.warn("    number of notes for single variable or _dta > 9,999")
         if n_label_langs > 100:
             general_good = False
-            print("    number of label languages > 100")
+            warnings.warn("    number of label languages > 100")
         if general_good:
-            print("    none")
+            warnings.warn("    none")
 
-        print("\nStata small problems")
+        warnings.warn("\nStata small problems")
         if width > 800:
             small_good = False
-            print("    data set width > 800")
+            warnings.warn("    data set width > 800")
         if nvar > 99:
             small_good = False
-            print("    numbar of variables > 99")
+            warnings.warn("    numbar of variables > 99")
         if nobs > 1200:
             small_good = False
-            print("    number of observations > 1,200")
+            warnings.warn("    number of observations > 1,200")
         if num_val_encodings > 1000:
             small_good = False
-            print("    number of encodings within single value label > 1,000")
+            warnings.warn("    number of encodings within single value label > 1,000")
         if version == 13:
             if max_note_size > 13400:
                 small_good = False
-                print("    note size > 13,400")
+                warnings.warn("    note size > 13,400")
             if char_len > 13400:
                 small_good = False
-                print("    char length > 13,400")
+                warnings.warn("    char length > 13,400")
         else:
             if max_note_size > 8681:
                 small_good = False
-                print("    note size > 8,681")
+                warnings.warn("    note size > 8,681")
             if char_len > 8681:
                 small_good = False
-                print("    char length > 8,681")
+                warnings.warn("    char length > 8,681")
         if small_good:
-            print("    none")
+            warnings.warn("    none")
 
-        print("\nStata IC problems")
+        warnings.warn("\nStata IC problems")
         if width > 24564:
             medium_good = False
-            print("    data set width > 24,564")
+            warnings.warn("    data set width > 24,564")
         if nvar > 2047:
             medium_good = False
-            print("    numbar of variables > 2,047")
+            warnings.warn("    numbar of variables > 2,047")
         if nobs > 2147483647:
             medium_good = False
-            print("    number of observations > 2,147,483,647")
+            warnings.warn("    number of observations > 2,147,483,647")
         if num_val_encodings > 65536:
             medium_good = False
-            print("    number of encodings within single value label > 65,536")
+            warnings.warn("    number of encodings within single value label > 65,536")
         if max_note_size > 67784:
             medium_good = False
-            print("    note size > 67,784")
+            warnings.warn("    note size > 67,784")
         if char_len > 67784:
             medium_good = False
-            print("    char length > 67,784")
+            warnings.warn("    char length > 67,784")
         if medium_good:
-            print("    none")
+            warnings.warn("    none")
 
-        print("\nStata MP & SE problems")
+        warnings.warn("\nStata MP & SE problems")
         if width > 393192:
             large_good = False
-            print("    data set width > 393,192")
+            warnings.warn("    data set width > 393,192")
         if nvar > 32767:
             large_good = False
-            print("    numbar of variables > 32,767")
+            warnings.warn("    numbar of variables > 32,767")
         if nobs > 2147483647:
             large_good = False
-            print("    number of observations > 2,147,483,647")
+            warnings.warn("    number of observations > 2,147,483,647")
         if num_val_encodings > 65536:
             large_good = False
-            print("    number of encodings within single value label > 65,536")
+            warnings.warn("    number of encodings within single value label > 65,536")
         if max_note_size > 67784:
             large_good = False
-            print("    note size > 67,784")
+            warnings.warn("    note size > 67,784")
         if char_len > 67784:
             large_good = False
-            print("    char length > 67,784")
+            warnings.warn("    char length > 67,784")
         if large_good:
-            print("    none")
+            warnings.warn("    none")
             
     def _dta_format(self, address):
         """find version number of any recent version dta file"""
@@ -4472,7 +4484,7 @@ class Dta115(Dta):
                         seen_strl = True
                         if not self._quiet:
                             msg = "warning: strLs converted to strfs"
-                            print(("{err}" if IN_STATA else "") + msg)
+                            warnings.warn(("{err}" if IN_STATA else "") + msg)
                     str_len = 0
                     for i in range(nobs):
                         new_val = str(varvals[i][j])
@@ -4482,7 +4494,7 @@ class Dta115(Dta):
                                 seen_long_str = True
                                 if not self._quiet:
                                     msg = "warning: long strings truncated"
-                                    print(("{err}" if IN_STATA else "") + msg)
+                                    warnings.warn(("{err}" if IN_STATA else "") + msg)
                             new_val = new_val[:244]
                             val_len = 244
                         varvals[i][j] = new_val
@@ -4499,7 +4511,7 @@ class Dta115(Dta):
                         seen_long_str = True
                         if not self._quiet:
                             msg = "warning: long strings truncated"
-                            print(("{err}" if IN_STATA else "") + msg)
+                            warnings.warn(("{err}" if IN_STATA else "") + msg)
                     str_len = 0
                     for i in range(nobs):
                         new_val = varvals[i][j]
@@ -4522,7 +4534,7 @@ class Dta115(Dta):
                     seen_strange = True
                     if not self._quiet:
                         msg = "strange Stata types encountered; ignoring"
-                        print(("{err}" if IN_STATA else "") + msg)
+                        warnings.warn(("{err}" if IN_STATA else "") + msg)
         
     def _new_from_iter(self, varvals, compress=True,
                        single_row=False, quiet=False):
@@ -4674,9 +4686,9 @@ class Dta115(Dta):
             smcl = "{err}" if IN_STATA else ""
             if str_clipped:
                 msg = "warning: some strings were shortened to 244 characters"
-                print(smcl + msg)
+                warnings.warn(smcl + msg)
             if alt_missing:
-                print(smcl + "warning: some missing values inserted")
+                warnings.warn(smcl + "warning: some missing values inserted")
             
         # header
         self._ds_format  = 115
@@ -4774,7 +4786,7 @@ class Dta115(Dta):
                 st_type = int(st_type[3:])
                 if st_type > 244:
                     msg = "given string type too large; shortening to 244"
-                    print(("{err}" if IN_STATA else "") + msg)
+                    warnings.warn(("{err}" if IN_STATA else "") + msg)
                     st_type = 244
                     init_st_type = st_type
             elif st_type in type_names:
@@ -4904,12 +4916,12 @@ class Dta115(Dta):
                     st_type_name = self._get_type_name(st_type)
                     msg = (smcl + "warning: some values were incompatible with " + 
                            "specified type;\n    type changed to " + st_type_name)
-                    print(msg)
+                    warnings.warn(msg)
                 if str_clipped:
-                    print(smcl + "warning: some strings were " + 
+                    warnings.warn(smcl + "warning: some strings were " + 
                           "shortened to 244 characters")
                 if alt_missing:
-                    print(smcl + "warning: some missing values inserted")
+                    warnings.warn(smcl + "warning: some missing values inserted")
             
         
         self._typlist.append(st_type)
@@ -5068,15 +5080,15 @@ class Dta115(Dta):
                 if old_type != new_type and c not in seen_cols:
                     old_name = self._get_type_name(old_type)
                     new_name = self._get_type_name(new_type)
-                    print(msg.format(varlist[c], old_name, new_name))
+                    warnings.warn(msg.format(varlist[c], old_name, new_name))
                 seen_cols.add(c)
             
             smcl = "{err}" if IN_STATA else ""
             if str_clipped:
                 msg = "warning: some strings were shortened to 244 characters"
-                print(smcl + msg)
+                warnings.warn(smcl + msg)
             if alt_missing:
-                print(smcl + "warning: some missing values inserted")
+                warnings.warn(smcl + "warning: some missing values inserted")
         
     def _missing_save_val(self, miss_val, st_type):
         """helper function for writing dta files"""
@@ -5470,7 +5482,7 @@ class Dta117(Dta):
         if not quiet:
             if alt_missing:
                 smcl = "{err}" if IN_STATA else "" 
-                print(smcl + "warning: some missing values inserted")
+                warnings.warn(smcl + "warning: some missing values inserted")
             
         # header
         self._ds_format  = 117
@@ -5573,7 +5585,7 @@ class Dta117(Dta):
                     st_type = int(m.group(1)) 
                     if st_type > 2045:
                         if not self._quiet:
-                            print("string type > 2045; appending as strL")
+                            warnings.warn("string type > 2045; appending as strL")
                         st_type = 32768
                 init_st_type = st_type
             elif st_type in type_names:
@@ -5722,9 +5734,9 @@ class Dta117(Dta):
                     st_type_name = self._get_type_name(st_type)
                     msg = ("warning: some values were incompatible with " + 
                            "specified type;\n    type changed to " + st_type_name)
-                    print(smcl + msg)
+                    warnings.warn(smcl + msg)
                 if alt_missing:
-                    print(smcl + "warning: some missing values inserted")
+                    warnings.warn(smcl + "warning: some missing values inserted")
             
         
         self._typlist.append(st_type)
@@ -5899,12 +5911,12 @@ class Dta117(Dta):
                 if old_type != new_type and c not in seen_cols:
                     old_name = self._get_type_name(old_type)
                     new_name = self._get_type_name(new_type)
-                    print(msg.format(varlist[c], old_name, new_name))
+                    warnings.warn(msg.format(varlist[c], old_name, new_name))
                 seen_cols.add(c)
             
             smcl = "{err}" if IN_STATA else ""
             if alt_missing:
-                print(smcl + "warning: some missing values inserted")
+                warnings.warn(smcl + "warning: some missing values inserted")
         
     def _missing_save_val(self, miss_val, st_type):
         """helper function for writing dta files"""
