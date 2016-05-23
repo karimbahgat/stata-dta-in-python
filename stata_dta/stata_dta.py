@@ -4076,7 +4076,7 @@ class Dta():
             self._time_stamp = get_byte_str(18)
             
             # descriptors
-            self._typlist = [ord(sfile.read(1)) for i in range(nvar)]
+            self._typlist = [unpack('B', sfile.read(1))[0] for i in range(nvar)]
             self._varlist = [get_byte_str(33) for i in range(nvar)]
             self._srtlist = self._get_srtlist(sfile)
             self._fmtlist = [get_byte_str(49) for i in range(nvar)]
@@ -5193,7 +5193,8 @@ class Dta115(Dta):
                       b'\0'*(18-len(time_stamp)))
             
             # descriptors
-            dta.write(bytes(self._typlist))
+            for typ in self._typlist:
+                dta.write(pack('B', typ))
             for name in self._varlist:
                 name = name[:32]
                 dta.write(bytearray(name, 'iso-8859-1') + b'\0'*(33-len(name)))
